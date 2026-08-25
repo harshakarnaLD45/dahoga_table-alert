@@ -350,10 +350,49 @@ const PrivacyPolicy = () => {
           </p>
         </section>
 
-        {/* 11. Transfers to Third Countries */}
+        {/* 11. Map Display (OpenStreetMap / Leaflet) */}
         <section className="privacy-section">
           <h2>
             <span>11.</span>{" "}
+            {tn("privacyPolicy.sections.map.title")}
+          </h2>
+
+          <p>
+            {tn("privacyPolicy.sections.map.text1")}
+          </p>
+
+          <p>
+            {tn("privacyPolicy.sections.map.text2")}
+          </p>
+
+          <p>
+            {tn("privacyPolicy.sections.map.text3")}
+          </p>
+
+          <p>
+            {tn("privacyPolicy.sections.map.text4")}
+          </p>
+
+          <p>
+            {tn("privacyPolicy.sections.map.text5")}{" "}
+            <a
+              href="https://osmfoundation.org/wiki/Privacy_Policy"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              https://osmfoundation.org/wiki/Privacy_Policy
+            </a>
+          </p>
+
+          <p>
+            {tn("privacyPolicy.sections.map.legalBasis")}
+          </p>
+        </section>
+
+        {/* 12. Transfers to Third Countries */}
+        <section className="privacy-section">
+          <h2>
+            <span>12.</span>{" "}
             {tn("privacyPolicy.sections.thirdCountries.title")}
           </h2>
 
@@ -366,10 +405,10 @@ const PrivacyPolicy = () => {
           </p>
         </section>
 
-        {/* 12. No Automated Decision-Making */}
+        {/* 13. No Automated Decision-Making */}
         <section className="privacy-section">
           <h2>
-            <span>12.</span>{" "}
+            <span>13.</span>{" "}
             {tn("privacyPolicy.sections.automated.title")}
           </h2>
 
@@ -382,10 +421,10 @@ const PrivacyPolicy = () => {
           </p>
         </section>
 
-        {/* 13. Retention */}
+        {/* 14. Retention */}
         <section className="privacy-section">
           <h2>
-            <span>13.</span>{" "}
+            <span>14.</span>{" "}
             {tn("privacyPolicy.sections.retention.title")}
           </h2>
 
@@ -410,10 +449,10 @@ const PrivacyPolicy = () => {
           </p>
         </section>
 
-        {/* 14. Data-Subject Rights */}
+        {/* 15. Data-Subject Rights */}
         <section className="privacy-section">
           <h2>
-            <span>14.</span>{" "}
+            <span>15.</span>{" "}
             {tn("privacyPolicy.sections.rights.title")}
           </h2>
 
@@ -442,10 +481,10 @@ const PrivacyPolicy = () => {
           </p>
         </section>
 
-        {/* 15. Right to Lodge a Complaint */}
+        {/* 16. Right to Lodge a Complaint */}
         <section className="privacy-section">
           <h2>
-            <span>15.</span>{" "}
+            <span>16.</span>{" "}
             {tn("privacyPolicy.sections.complaint.title")}
           </h2>
 
@@ -454,10 +493,10 @@ const PrivacyPolicy = () => {
           </p>
         </section>
 
-        {/* 16. Changes to This Privacy Policy */}
+        {/* 17. Changes to This Privacy Policy */}
         <section className="privacy-section">
           <h2>
-            <span>16.</span>{" "}
+            <span>17.</span>{" "}
             {tn("privacyPolicy.sections.changes.title")}
           </h2>
 

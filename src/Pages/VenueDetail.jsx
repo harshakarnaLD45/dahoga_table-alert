@@ -21,9 +21,8 @@ import {
   withTransaction,
 } from "../Services/storage";
 import { pushNotification } from "../Services/notify";
-import { sendEmail } from "../Services/mailer";
 import { buildBookingMails } from "../Services/email";
-import { emailJsConfigured, sendEmailJs } from "../Services/emailjs";
+import { sendEmailJs } from "../Services/emailjs";
 import { TableSvg, Legend } from "../Components/TableSvg";
 import { Beleg, printBeleg } from "../Components/Beleg";
 import { EmailCard } from "../Components/EmailCard";
@@ -249,20 +248,13 @@ export function VenueDetail({
       // im Gastgeber-Bereich — sonst würde dieselbe Mail doppelt auftauchen.
       const apiSent = { guest: false, venue: false, test: false, previews: [] };
       try {
-        // EmailJS mit der gemeinsamen Vorlage, sobald konfiguriert; sonst SMTP.js.
-        const g = emailJsConfigured
-          ? await sendEmailJs({
-              to: res.email,
-              subject: guestMail.betreff,
-              html: guestMail.html,
-              replyTo: loc.email || res.email,
-            })
-          : await sendEmail({
-              to: res.email,
-              subject: guestMail.betreff,
-              text: guestMail.lines.join("\n\n"),
-              html: guestMail.html,
-            });
+        // EmailJS mit der gemeinsamen Vorlage (einziger Zustellweg).
+        const g = await sendEmailJs({
+          to: res.email,
+          subject: guestMail.betreff,
+          html: guestMail.html,
+          replyTo: loc.email || res.email,
+        });
         apiSent.guest = !!g.success;
         if (g.mode === "ethereal") {
           apiSent.test = true;
@@ -273,19 +265,12 @@ export function VenueDetail({
       }
       try {
         if (isEmail(venueMail.an)) {
-          const vn = emailJsConfigured
-            ? await sendEmailJs({
-                to: venueMail.an,
-                subject: venueMail.betreff,
-                html: venueMail.html,
-                replyTo: res.email,
-              })
-            : await sendEmail({
-                to: venueMail.an,
-                subject: venueMail.betreff,
-                text: venueMail.lines.join("\n\n"),
-                html: venueMail.html,
-              });
+          const vn = await sendEmailJs({
+            to: venueMail.an,
+            subject: venueMail.betreff,
+            html: venueMail.html,
+            replyTo: res.email,
+          });
           apiSent.venue = !!vn.success;
           if (vn.mode === "ethereal" && vn.previewUrl)
             apiSent.previews.push(vn.previewUrl);

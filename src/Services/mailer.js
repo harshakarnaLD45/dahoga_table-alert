@@ -1,15 +1,5 @@
 import { renderHtmlTemplate } from "./email";
-import { emailJsConfigured, sendEmailJs } from "./emailjs";
-
-const SMTP_SECURE_TOKEN =
-  process.env.REACT_APP_SMTP_SECURE_TOKEN || "";
-
-const MAIL_FROM =
-  process.env.REACT_APP_MAIL_FROM || "";
-
-const MAIL_FROM_NAME =
-  process.env.REACT_APP_MAIL_FROM_NAME ||
-  "Mischtisch Sachsen";
+import { sendEmailJs } from "./emailjs";
 
 const REGISTRATION_REVIEW_EMAIL =
   process.env.REACT_APP_REGISTRATION_REVIEW_EMAIL || "";
@@ -28,6 +18,15 @@ function isValidEmail(value) {
   );
 }
 
+// Empfängerliste parsen: kommagetrennte Zeichenkette in ein Array zerlegen,
+// Einträge trimmen, Leereinträge verwerfen. Einzelne Empfänger bleiben gültig.
+export function parseRecipients(value) {
+  return String(value || "")
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) =>
     ({
@@ -40,102 +39,27 @@ function escapeHtml(value) {
   );
 }
 
-function textToHtml(text) {
+export function textToHtml(text) {
   return escapeHtml(text || "").replace(/\r?\n/g, "<br />");
 }
 
-function getSmtpClient() {
-  if (
-    typeof window === "undefined" ||
-    !window.Email ||
-    typeof window.Email.send !== "function"
-  ) {
-    throw new Error(
-      "SMTP.js wurde nicht geladen. Prüfen Sie public/index.html.",
-    );
-  }
-
-  if (!SMTP_SECURE_TOKEN) {
-    throw new Error(
-      "REACT_APP_SMTP_SECURE_TOKEN fehlt.",
-    );
-  }
-
-  if (!isValidEmail(MAIL_FROM)) {
-    throw new Error(
-      "REACT_APP_MAIL_FROM fehlt oder ist ungültig.",
-    );
-  }
-
-  return window.Email;
-}
-
-async function deliverEmail({ to, subject, text, html }) {
-  const client = getSmtpClient();
-
-  const response = await client.send({
-    SecureToken: SMTP_SECURE_TOKEN,
-    To: to.trim(),
-    From: MAIL_FROM.trim(),
-    FromName: MAIL_FROM_NAME,
-    Subject: subject,
-    Body: html || textToHtml(text),
-  });
-
-  const message = String(response || "").trim();
-
-  if (message.toUpperCase() !== "OK") {
-    throw new Error(message || "SMTP.js konnte die E-Mail nicht versenden.");
-  }
-
-  return {
-    success: true,
-    message,
-  };
-}
-
-export async function sendEmail({ to, subject, text, html }) {
-  if (!isValidEmail(to)) {
-    return {
-      success: false,
-      error: "Keine gültige Empfänger-E-Mail",
-    };
-  }
-
-  if (!subject || (!text && !html)) {
-    return {
-      success: false,
-      error: "Betreff sowie Text oder HTML sind erforderlich",
-    };
-  }
-
-  try {
-    return await deliverEmail({
-      to,
-      subject,
-      text,
-      html,
-    });
-  } catch (error) {
-    console.error("SMTP.js send error:", error);
-
-    return {
-      success: false,
-      error:
-        error?.message ||
-        "E-Mail konnte nicht versendet werden",
-    };
-  }
-}
-
+// Zustellung EINER Registrierungs-Mail über EmailJS (SMTP.js wurde entfernt —
+// EmailJS ist der einzige Versandweg). recipient darf eine kommagetrennte
+// Liste sein; jede Adresse wird einzeln geprüft, danach wird die Liste mit
+// ", " wieder zusammengesetzt und EmailJS liefert an alle Empfänger.
 async function sendRegistrationMessage({
   type,
   recipient,
   subject,
   text,
   html,
+  replyTo = "",
 }) {
-  if (!isValidEmail(recipient)) {
+  const recipients = parseRecipients(recipient);
+  if (
+    recipients.length === 0 ||
+    recipients.some((address) => !isValidEmail(address))
+  ) {
     return {
       type,
       recipient: recipient || null,
@@ -144,11 +68,11 @@ async function sendRegistrationMessage({
     };
   }
 
-  const result = await sendEmail({
-    to: recipient,
+  const result = await sendEmailJs({
+    to: recipients.join(", "),
     subject,
-    text,
-    html,
+    html: html || textToHtml(text),
+    replyTo,
   });
 
   return {
@@ -209,36 +133,10 @@ export async function sendRegistrationEmails(payload) {
       credentialsCreatedAt || registrationDate || "—",
   };
 
-  // Gemeinsame Textbausteine für SMTP- und EmailJS-Pfad.
-  const hostLines = [
-    `Guten Tag ${hostName || ""},`,
-    "Ihre Registrierung wurde erfolgreich übermittelt.",
-    `Registrierungsnummer: ${regCode}`,
-    "Ihre Angaben werden nun geprüft.",
-  ];
-  const verificationLines = [
-    "Eine neue Betriebsregistrierung wurde eingereicht.",
-    `Betrieb: ${companyName || "—"}`,
-    `Ansprechpartner: ${hostName || "—"}`,
-    `E-Mail: ${email}`,
-    // `Registrierungsnummer: ${regCode}`,
-  ];
-  const internalLines = [
-    `Ein neuer Betrieb wurde registriert: ${companyName || "—"}`,
-    `Ansprechpartner: ${hostName || "—"}`,
-    `E-Mail-Adresse des Zugangs: ${accountEmail || email}`,
-    `Registrierungsnummer: ${regCode}`,
-    `Zugang erstellt am: ${
-      credentialsCreatedAt || registrationDate || "—"
-    }`,
-  ];
-
-  // EmailJS als Zustellquelle, sobald konfiguriert (eine gemeinsame Vorlage
-  // für alle Mail-Typen); sonst läuft der SMTP.js-Fallback unten.
-  if (emailJsConfigured) {
-    return sendRegistrationEmailsViaEmailJs({ values: templateValues });
-  }
-
+  // EmailJS ist der einzige Zustellweg (SMTP.js wurde entfernt): die fertigen
+  // HTML-Briefe (01–03) werden lokal gerendert und komplett übergeben.
+  const company =
+    templateValues.companyName || templateValues.registrationNumber;
   let hostHtml = "";
   let verificationHtml = "";
   let internalHtml = "";
@@ -274,30 +172,27 @@ export async function sendRegistrationEmails(payload) {
     await Promise.all([
       sendRegistrationMessage({
         type: "host",
-        recipient: email,
+        recipient: templateValues.email,
         subject:
-          `Ihre Registrierung bei Mischtisch Sachsen — ` +
-          `${companyName || regCode}`,
-        text: hostLines.join("\n\n"),
+          `Ihre Registrierung bei Mischtisch Sachsen — ${company}`,
         html: hostHtml,
+        replyTo: templateValues.email,
       }),
       sendRegistrationMessage({
         type: "verification",
         recipient: REGISTRATION_REVIEW_EMAIL,
         subject:
-          `Prüfauftrag: Neue Betriebsregistrierung — ` +
-          `${companyName || regCode}`,
-        text: verificationLines.join("\n"),
+          `Prüfauftrag: Neue Betriebsregistrierung — ${company}`,
         html: verificationHtml,
+        replyTo: templateValues.email,
       }),
       sendRegistrationMessage({
         type: "internal",
         recipient: MAINCOMPANY_EMAIL,
         subject:
-          `Interne Zugangsdaten: ${companyName || regCode} — ` +
-          "Mischtisch Sachsen",
-        text: internalLines.join("\n"),
+          `Interne Zugangsdaten: ${company} — Mischtisch Sachsen`,
         html: internalHtml,
+        replyTo: templateValues.email,
       }),
     ]);
 
@@ -307,92 +202,6 @@ export async function sendRegistrationEmails(payload) {
       verificationEmail.success &&
       internalEmail.success,
     regCode,
-    hostEmail,
-    verificationEmail,
-    internalEmail,
-  };
-}
-
-async function sendRegistrationMessageViaEmailJs({
-  type,
-  recipient,
-  ...params
-}) {
-  if (!isValidEmail(recipient)) {
-    return {
-      type,
-      recipient: recipient || null,
-      success: false,
-      error: "Empfänger fehlt oder ist ungültig",
-    };
-  }
-
-  const result = await sendEmailJs({ to: recipient, ...params });
-
-  return {
-    type,
-    recipient,
-    ...result,
-  };
-}
-
-// EmailJS-Pfad: die fertigen HTML-Briefe (01–03) werden lokal gerendert und
-// komplett an EmailJS geschickt — die Daten stecken bereits in der Vorlage.
-async function sendRegistrationEmailsViaEmailJs({ values }) {
-  const company = values.companyName || values.registrationNumber;
-
-  let hostHtml = "", verificationHtml = "", internalHtml = "";
-  try {
-    [hostHtml, verificationHtml, internalHtml] = await Promise.all([
-      renderHtmlTemplate("01_restaurant_registration_confirmation", values),
-      renderHtmlTemplate("02_external_verification_request", values),
-      renderHtmlTemplate("03_internal_generated_credentials", values),
-    ]);
-  } catch (error) {
-    // Vorlage nicht verfügbar — keine leeren Briefe verschicken.
-    console.error("Registration HTML template error:", error);
-    return {
-      success: false,
-      error:
-        error?.message ||
-        "Registrierungs-E-Mail-Vorlagen konnten nicht geladen werden",
-    };
-  }
-
-  const [hostEmail, verificationEmail, internalEmail] =
-    await Promise.all([
-      sendRegistrationMessageViaEmailJs({
-        type: "host",
-        recipient: values.email,
-        subject:
-          `Ihre Registrierung bei Mischtisch Sachsen — ${company}`,
-        html: hostHtml,
-        replyTo: values.email,
-      }),
-      sendRegistrationMessageViaEmailJs({
-        type: "verification",
-        recipient: REGISTRATION_REVIEW_EMAIL,
-        subject:
-          `Prüfauftrag: Neue Betriebsregistrierung — ${company}`,
-        html: verificationHtml,
-        replyTo: values.email,
-      }),
-      sendRegistrationMessageViaEmailJs({
-        type: "internal",
-        recipient: MAINCOMPANY_EMAIL,
-        subject:
-          `Interne Zugangsdaten: ${company} — Mischtisch Sachsen`,
-        html: internalHtml,
-        replyTo: values.email,
-      }),
-    ]);
-
-  return {
-    success:
-      hostEmail.success &&
-      verificationEmail.success &&
-      internalEmail.success,
-    regCode: values.registrationNumber,
     hostEmail,
     verificationEmail,
     internalEmail,

@@ -27,7 +27,8 @@ import { SlotEditor } from "./SlotEditor";
 import { Sondertermine } from "./Sondertermine";
 import { AktionenEditor } from "./AktionenEditor";
 import { PhotoUploader } from "./PhotoUploader";
-import { sendEmail } from "../Services/mailer";
+import { sendEmailJs } from "../Services/emailjs";
+import { textToHtml } from "../Services/mailer";
 import { REGIONS, VENUE_TYPES } from "../Services/data";
 import { accessCode } from "../Services/auth";
 
@@ -339,10 +340,15 @@ export function HostArea({
       }
       reload();
       showToast(
-        v(
-          "Profildaten wurden erfolgreich gespeichert.",
-          "Profile data has been successfully saved.",
-        ),
+        requireConfig
+          ? v(
+              "Mischtisch-Daten wurden erfolgreich gespeichert.",
+              "Mischtisch data has been successfully saved.",
+            )
+          : v(
+              "Profildaten wurden erfolgreich gespeichert.",
+              "Profile data has been successfully saved.",
+            ),
       );
     } catch (err) {
       //console.error(err);
@@ -384,10 +390,10 @@ export function HostArea({
   const sendNow = async (n) => {
     const an = n.an || email;
     try {
-      const res = await sendEmail({
+      const res = await sendEmailJs({
         to: an,
         subject: n.betreff,
-        text: (n.lines || []).join("\n\n"),
+        html: textToHtml((n.lines || []).join("\n\n")),
       });
       if (res.success) {
         await removeNotification(loc.id, n.id);

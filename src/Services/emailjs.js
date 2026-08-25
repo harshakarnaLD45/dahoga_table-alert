@@ -3,19 +3,13 @@
 //   {{to_email}} {{subject}} {{reply_to}} {{{full_html}}}
 // Der fertige HTML-Brief (public/mailtempletes/01–05) wird lokal gerendert
 // und komplett als full_html übergeben — es werden keine Bausteine mehr
-// gebaut oder an EmailJS geschickt.
-// ponytail: Sobald die Env-Variablen leer sind, läuft der SMTP.js-Fallback
-// in mailer.js/VenueDetail — hier ändert sich dann nichts.
+// gebaut oder an EmailJS geschickt. EmailJS ist der einzige Zustellweg
+// (der SMTP.js-Fallback wurde entfernt).
 import emailjs from "@emailjs/browser";
 
 const SERVICE_ID = process.env.REACT_APP_EMAILJS_SERVICE_ID || "";
 const TEMPLATE_ID = process.env.REACT_APP_EMAILJS_TEMPLATE_ID || "";
 const PUBLIC_KEY = process.env.REACT_APP_EMAILJS_PUBLIC_KEY || "";
-
-// Leer lassen (Standard) = SMTP.js-Fallback in mailer.js/VenueDetail bleibt aktiv.
-export const emailJsConfigured = Boolean(
-  SERVICE_ID && TEMPLATE_ID && PUBLIC_KEY,
-);
 
 let initialized = false;
 

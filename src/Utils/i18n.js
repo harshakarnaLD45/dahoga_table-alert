@@ -595,6 +595,24 @@ const TRANSLATIONS = {
           text: "Eine darüber hinausgehende Weitergabe erfolgt nur, soweit sie gesetzlich zulässig oder vorgeschrieben ist.",
         },
 
+        map: {
+          title: "Kartenanzeige (OpenStreetMap / Leaflet)",
+          text1:
+            "Auf den Tischseiten werden Kartenansichten angezeigt, die den Standort des ausgewählten Veranstaltungsortes darstellen. Diese Seiten können außerdem Gastgeberprofile, Mischtisch-Konfigurationen, Buchungszeiten, Reservierungsinformationen und technische Statusinformationen enthalten.",
+          text2:
+            "Zur Darstellung der Karten wird die Open-Source-Bibliothek Leaflet verwendet. Die Kartenkacheln werden von den OpenStreetMap-Tileservern (tile.openstreetmap.org) geladen.",
+          text3:
+            "Beim Aufrufen einer Karte wird eine Verbindung zu den Servern von OpenStreetMap hergestellt. Dabei werden die IP-Adresse des aufrufenden Geräts sowie die Koordinaten des angezeigten Kartenausschnitts übermittelt.",
+          text4:
+            "Es werden keine personenbezogenen Daten durch die Plattform an OpenStreetMap übermittelt. Die IP-Adresse wird technisch bedingt bei jedem Serverkontakt übertragen. OpenStreetMap verarbeitet diese Daten auf Grundlage seiner eigenen Datenschutzrichtlinie.",
+          text5:
+            "Weitere Informationen zur Datenverarbeitung durch OpenStreetMap finden Sie unter",
+          osmlink:
+            "https://osmfoundation.org/wiki/Privacy_Policy",
+          legalBasis:
+            "Rechtsgrundlage für die Einbindung ist Artikel 6 Absatz 1 Buchstabe f DSGVO. Das berechtigte Interesse besteht in der Bereitstellung einer funktionalen Standortanzeige.",
+        },
+
         thirdCountries: {
           title: "Übermittlungen in Drittländer",
           text1:
@@ -1335,6 +1353,24 @@ const TRANSLATIONS = {
             "Gmail/Google for sending reservation emails",
           ],
           text: "Any further disclosure takes place only where legally permitted or required.",
+        },
+
+        map: {
+          title: "Map Display (OpenStreetMap / Leaflet)",
+          text1:
+            "On the Table pages, map views are displayed showing the location of the selected venue. This may include host profiles, Mischtisch configurations, booking times, reservation information and technical status information.",
+          text2:
+            "The open-source Leaflet library is used to render the map. Map tiles are loaded from the OpenStreetMap tile servers (tile.openstreetmap.org).",
+          text3:
+            "When a map is accessed, a connection is made to the OpenStreetMap servers. This transmits the IP address of the accessing device as well as the coordinates of the displayed map section.",
+          text4:
+            "No personal data is transmitted to OpenStreetMap by the platform. The IP address is transmitted due to technical necessity with every server contact. OpenStreetMap processes this data in accordance with its own privacy policy.",
+          text5:
+            "Further information about data processing by OpenStreetMap is available at",
+          osmlink:
+            "https://osmfoundation.org/wiki/Privacy_Policy",
+          legalBasis:
+            "The legal basis for the integration is Article 6(1)(f) GDPR. The legitimate interest is providing a functional location display.",
         },
 
         thirdCountries: {
