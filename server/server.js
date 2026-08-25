@@ -853,7 +853,9 @@ app.post("/api/check-registration", async (req, res) => {
       }
     }
 
-    const status = await lookupRegistrationStatus(adminClient, uid, email);
+    const status = String(
+      (await lookupRegistrationStatus(adminClient, uid, email)) || "",
+    ).toLowerCase();
 
     if (status === "active") {
       return res.json({ success: true, status: "active" });
@@ -922,11 +924,13 @@ app.post(
       // first against the host profile (by UID, then by email), then the
       // venue record as legacy fallback. "pending" — or any unresolved
       // status — rejects the request.
-      const registrationStatus = await lookupRegistrationStatus(
-        adminClient,
-        userRecord.uid,
-        normalizedEmail,
-      );
+      const registrationStatus = String(
+        (await lookupRegistrationStatus(
+          adminClient,
+          userRecord.uid,
+          normalizedEmail,
+        )) || "",
+      ).toLowerCase();
 
       if (registrationStatus !== "active") {
         return res.status(403).json({

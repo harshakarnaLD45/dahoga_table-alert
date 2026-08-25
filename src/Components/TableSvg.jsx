@@ -92,6 +92,17 @@ export function TableSvg({
   ambient = false,
 }) {
   let table = tisch && tisch.shape ? tisch : standardLayout(seats || 8);
+  // Veraltete eigene Anordnung: weicht die Zahl gesetzter Positionen von der
+  // aktuellen Platzzahl ab (z. B. Tischgröße später geändert), auf die
+  // Standard-Verteilung der aktuellen Platzzahl zurückfallen.
+  const expectedSeats = seats || table.seats || 0;
+  if (
+    expectedSeats > 0 &&
+    table.custom &&
+    table.custom.slots.length !== expectedSeats
+  ) {
+    table = standardLayout(expectedSeats);
+  }
   let positions = seatPositions(table);
   let total = positions.length;
   let shape = table.custom ? table.custom.shape : table.shape;

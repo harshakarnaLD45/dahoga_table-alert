@@ -32,7 +32,11 @@ service cloud.firestore {
     
 
     match /hostProfiles/{uid} {
-      allow get: if (isPasswordUser() && request.auth.uid == uid) || isAdmin();
+      // Öffentliche Einzelabfrage (nur get, kein list): die Startseite braucht
+      // den Freischalt-Status für die Betriebs-Filterung. Die Felder (email,
+      // inhaber, betriebId) sind über die ohnehin öffentlichen venues-
+      // Dokumente bereits sichtbar; list bleibt Admin vorbehalten.
+      allow get: if true;
       allow create, update, delete: if isPasswordUser()
         && request.auth.uid == uid;
       allow list: if isAdmin();

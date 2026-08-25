@@ -12,12 +12,18 @@ import {
 } from "../Services/storage";
 import { buildRegistrationMails } from "../Services/email";
 import { sendRegistrationEmails } from "../Services/mailer";
+import { getFirebaseServices } from "../Services/firebase";
 import { REGIONS, VENUE_TYPES } from "../Services/data";
 
 export function LoginForm({ onDone, showToast }) {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+  const [resetError, setResetError] = useState(null);
 
   const submit = async () => {
     if (!isEmail(email) || pw.length === 0) {
@@ -46,44 +52,193 @@ export function LoginForm({ onDone, showToast }) {
       setBusy(false);
     }
   };
+
+  const sendResetLink = async () => {
+    if (!isEmail(resetEmail)) {
+      setResetError(
+        v("Bitte eine gültige E-Mail-Adresse eingeben.", "Please enter a valid email address."),
+      );
+      return;
+    }
+    setResetBusy(true);
+    setResetDone(false);
+    setResetError(null);
+    try {
+      const { auth, db } = await getFirebaseServices();
+      const targetEmail = resetEmail.trim().toLowerCase();
+
+      // Query the venues collection for a document with this email
+      // and verify registrationStatus is "active".
+      const venuesSnap = await db
+        .collection("venues")
+        .where("email", "==", targetEmail)
+        .limit(1)
+        .get();
+
+      if (venuesSnap.empty) {
+        setResetError(
+          v(
+            "Zu dieser E-Mail-Adresse wurde kein Betrieb gefunden.",
+            "No venue found for this email address.",
+          ),
+        );
+        return;
+      }
+
+      const venueData = venuesSnap.docs[0].data();
+      // Groß-/Kleinschreibung tolerant ("active" aus Altbestand, "Active" neu).
+      if (String(venueData.registrationStatus || "").toLowerCase() !== "active") {
+        setResetError(
+          v(
+            "Ihr Zugang wurde noch nicht freigeschaltet — Sie erhalten eine E-Mail, sobald die Prüfung abgeschlossen ist.",
+            "Your account has not been activated yet — you will receive an email once the review is complete.",
+          ),
+        );
+        return;
+      }
+
+      // Check passed — send the password reset email.
+      await auth.sendPasswordResetEmail(targetEmail);
+      setResetDone(true);
+      showToast(
+        v(
+          "Link zum Zurücksetzen des Passworts wurde versendet — bitte E-Mails prüfen.",
+          "Password reset link sent — please check your email.",
+        ),
+      );
+    } catch (err) {
+      console.error("Passwort-Reset fehlgeschlagen:", err);
+      setResetError(
+        v(
+          "Passwort-Reset konnte nicht durchgeführt werden.",
+          "Password reset could not be completed.",
+        ),
+      );
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   return (
     <div className="card" style={{ display: "grid", gap: 12 }}>
-      <div className="form-grid">
-        <div>
-          <label className="label" htmlFor="li-em">
-            {v("E-Mail-Adresse", "Email address")}
-          </label>
-          <input
-            id="li-em"
-            type="email"
-            className="input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder={v("reservierung@ihr-betrieb.example", "booking@your-venue.example")}
-          />
+      {!showReset && (
+        <>
+          <div className="form-grid">
+            <div>
+              <label className="label" htmlFor="li-em">
+                {v("E-Mail-Adresse", "Email address")}
+              </label>
+              <input
+                id="li-em"
+                type="email"
+                className="input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={v("reservierung@ihr-betrieb.example", "booking@your-venue.example")}
+              />
+            </div>
+            <div>
+              <label className="label" htmlFor="li-pw">
+                {v("Passwort", "Password")}
+              </label>
+              <input
+                id="li-pw"
+                type="password"
+                className="input"
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submit();
+                }}
+                placeholder="••••••"
+              />
+              <button
+                type="button"
+                className="link-btn"
+                style={{
+                  all: "unset",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: "var(--kobalt)",
+                  marginTop: 4,
+                  textDecoration: "underline",
+                }}
+                onClick={() => setShowReset(true)}
+              >
+                {v("Passwort vergessen?", "Forgot password?")}
+              </button>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button className="btn btn-primary" disabled={busy} onClick={submit}>
+              {busy ? v("Wird geprüft …", "Checking …") : v("Anmelden", "Sign in")}
+            </button>
+          </div>
+        </>
+      )}
+      {showReset && (
+        <div
+          style={{
+            padding: "14px 16px",
+            background: "#F8FAFB",
+            borderRadius: 10,
+            border: "1px solid #DDE2EA",
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 600 }}>
+            {v("Passwort zurücksetzen", "Reset password")}
+          </div>
+          <div>
+            <label className="label" htmlFor="pw-reset-em">
+              {v("E-Mail-Adresse", "Email address")}
+            </label>
+            <input
+              id="pw-reset-em"
+              type="email"
+              className="input"
+              value={resetEmail}
+              onChange={(e) => {
+                setResetEmail(e.target.value);
+                setResetError(null);
+                setResetDone(false);
+              }}
+              placeholder={v("reservierung@ihr-betrieb.example", "booking@your-venue.example")}
+            />
+          </div>
+          {resetError && (
+            <div style={{ color: "#B4443C", fontSize: 13 }}>{resetError}</div>
+          )}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <button
+              type="button"
+              className="link-btn"
+              style={{
+                all: "unset",
+                cursor: "pointer",
+                fontSize: 13,
+                color: "var(--kobalt)",
+                textDecoration: "underline",
+              }}
+              onClick={() => setShowReset(false)}
+            >
+              {v("← Zurück", "← Back")}
+            </button>
+            <button
+              className="btn btn-primary"
+              disabled={resetBusy || resetDone}
+              onClick={sendResetLink}
+            >
+              {resetBusy
+                ? v("Wird geprüft …", "Checking …")
+                : resetDone
+                  ? v("✓ Versendet", "✓ Sent")
+                  : v("Link zusenden", "Send link")}
+            </button>
+          </div>
         </div>
-        <div>
-          <label className="label" htmlFor="li-pw">
-            {v("Passwort", "Password")}
-          </label>
-          <input
-            id="li-pw"
-            type="password"
-            className="input"
-            value={pw}
-            onChange={(e) => setPw(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submit();
-            }}
-            placeholder="••••••"
-          />
-        </div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="btn btn-primary" disabled={busy} onClick={submit}>
-          {busy ? v("Wird geprüft …", "Checking …") : v("Anmelden", "Sign in")}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { v } from "../Utils/i18n";
 import { dayStatus, nextAktion, aktionRange } from "../Utils/aktion";
 import { getOccupancy } from "../Services/storage";
+import { isVenueConfigured } from "../Utils/validate";
 
 export function LocCard({ loc, todayKey, onOpen }) {
 
@@ -23,12 +24,7 @@ export function LocCard({ loc, todayKey, onOpen }) {
 
 
 
-  const hasSlotByDay = Object.keys(loc.slotsByDay || {}).length > 0;
-
-  const configured = !!(
-    (loc.days || []).length &&
-    ((loc.slots || []).length || hasSlotByDay)
-  );
+  const configured = isVenueConfigured(loc);
 
 
   useEffect(() => {

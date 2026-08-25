@@ -1,5 +1,5 @@
 // Tischform melden: Variante wählen oder selbst anordnen, Umgebung (Vm im Bundle).
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { v } from "../Utils/i18n";
 import { presetById, presetLabel, presetVariant, tischLabel, TABLE_PRESETS, UMGEBUNG, umgebungLabel } from "../Utils/table";
 import { slugify } from "../Utils/strings";
@@ -7,6 +7,29 @@ import { mailtoHref } from "../Utils/mail";
 import { upsertVenue, setSetting } from "../Services/storage";
 import { TableSvg } from "../Components/TableSvg";
 import { ChairEditor } from "../Components/ChairEditor";
+
+// Beste Preset-Variante für einen gespeicherten Standard-Tisch
+// (Grundform + Platzzahl), bevorzugt Varianten ohne Stirnplätze.
+function presetForTisch(tisch) {
+  if (!tisch?.seats) return null;
+  const byShape = (p) => p.shape === tisch.shape;
+  const seatsOf = (p) =>
+    p.shape === "round"
+      ? p.n
+      : p.layout.top + p.layout.bottom + p.layout.left + p.layout.right;
+  const plain = TABLE_PRESETS.find(
+    (p) =>
+      byShape(p) &&
+      !p.layout?.left &&
+      !p.layout?.right &&
+      seatsOf(p) === tisch.seats,
+  );
+  return (
+    plain?.id ||
+    TABLE_PRESETS.find((p) => byShape(p) && seatsOf(p) === tisch.seats)?.id ||
+    null
+  );
+}
 
 export function TischformPage({ locations, preselect, reload, showToast, onDone, onBack }) {
   const [selected, setSelected] = useState(preselect || "");
@@ -20,6 +43,35 @@ export function TischformPage({ locations, preselect, reload, showToast, onDone,
   const [umgebung, setUmgebung] = useState({ top: "", bottom: "", left: "", right: "" });
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(null);
+  const [initialized, setInitialized] = useState(false);
+
+  // Beim Öffnen die gespeicherte Tischform des Betriebs vorbelegen statt der
+  // Standard-Variante E8: Preset-Variante, eigene Anordnung oder Standard-
+  // Layout auf den passenden Preset abbilden.
+  useEffect(() => {
+    if (initialized || !preselect) return;
+    const loc = locations.find((l) => l.id === preselect);
+    if (!loc) return; // Betrieb noch nicht geladen — beim nächsten Lauf prüfen.
+    setInitialized(true);
+    const t = loc.tisch;
+    if (!t) return; // keine gespeicherte Tischform — Standard bleibt.
+    if (t.custom && t.custom.slots.length === t.seats) {
+      // Eigene Anordnung: Grundform und gesetzte Positionen übernehmen.
+      setModus("eigen");
+      setShape(t.custom.shape || t.shape || "rect");
+      setSlots([...t.custom.slots]);
+    } else if (TABLE_PRESETS.some((p) => p.id === t.variant)) {
+      setModus("var");
+      setVariant(t.variant);
+    } else {
+      const preset = presetForTisch(t);
+      if (preset) {
+        setModus("var");
+        setVariant(preset);
+      }
+    }
+    if (t.umgebung) setUmgebung((u) => ({ ...u, ...t.umgebung }));
+  }, [locations, preselect, initialized]);
 
   const env = umgebung.top || umgebung.bottom || umgebung.left || umgebung.right ? umgebung : null;
 

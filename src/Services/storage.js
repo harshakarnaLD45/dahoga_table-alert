@@ -370,16 +370,38 @@ export async function setPhotos(venueId, photos) {
 export async function signInHost(email, password) {
   const { auth, db } = await getFirebaseServices();
   const credential = await auth.signInWithEmailAndPassword(normalizeEmail(email), password);
-  const profile = await db.collection("hostProfiles").doc(credential.user.uid).get();
-  if (!profile.exists) {
+  const profileSnap = await db.collection("hostProfiles").doc(credential.user.uid).get();
+  if (!profileSnap.exists) {
     await auth.signOut();
     throw new Error("HOST_PROFILE_NOT_FOUND");
   }
+  const profile = profileSnap.data();
+
+  // Freischaltung: nach erfolgreicher Passwortprüfung beide Dokumente auf
+  // "Active" setzen. Idempotent — läuft bei jedem Login; hostProfiles ist
+  // die Quelle für die Startseiten-Filterung.
+  await db
+    .collection("hostProfiles")
+    .doc(credential.user.uid)
+    .set({ registrationStatus: "Active" }, { merge: true });
+  if (profile.betriebId) {
+    try {
+      await db
+        .collection("venues")
+        .doc(profile.betriebId)
+        .set({ registrationStatus: "Active" }, { merge: true });
+    } catch (err) {
+      // Betriebsdokument fehlt oder ist gesperrt — daran scheitert die
+      // Anmeldung nicht; das Profil bleibt aktiv.
+      console.warn("Betrieb konnte nicht aktiviert werden", err?.code || err);
+    }
+  }
+
   return {
     uid: credential.user.uid,
     email: credential.user.email,
-    betriebId: profile.data().betriebId,
-    inhaber: profile.data().inhaber || "",
+    betriebId: profile.betriebId,
+    inhaber: profile.inhaber || "",
   };
 }
 
@@ -448,6 +470,7 @@ export async function saveHostRegistration({ venue, registration, profile }) {
       email: user.email,
       regCode,
       status: "pending",
+      registrationStatus: "pending",
       createdAt,
       submittedAt: createdAt,
       updatedAt: nowIso(),
@@ -522,6 +545,27 @@ export async function upsertHost(host) {
     },
     { merge: true },
   );
+}
+
+// Freischalt-Status der Gastgeber-Profile für die Startseiten-Filterung.
+// Nur Einzelabfragen per get (die Regeln erlauben kein öffentliches list).
+export async function getHostStatuses(uids) {
+  const { db } = await getFirebaseServices();
+  const statuses = {};
+  await Promise.all(
+    [...new Set(uids.filter(Boolean))].map(async (uid) => {
+      try {
+        const snap = await db.collection("hostProfiles").doc(uid).get();
+        statuses[uid] = snap.exists
+          ? snap.data().registrationStatus || null
+          : null;
+      } catch {
+        // Nicht lesbar (z. B. Regeln noch nicht aktualisiert) — sicher filtern.
+        statuses[uid] = null;
+      }
+    }),
+  );
+  return statuses;
 }
 
 export async function getSession() {

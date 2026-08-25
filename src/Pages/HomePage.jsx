@@ -1,35 +1,59 @@
 // Startseite: Hero, Regionen-Filter, Suche und Betriebs-Karten (Xm im Bundle).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { v } from "../Utils/i18n";
 import { dateKey } from "../Utils/dates";
 import { TableSvg } from "../Components/TableSvg";
 import { LocCard } from "../Components/LocCard";
 import { REGIONS } from "../Services/data";
 import { MapSection } from "../Components/MapSection";
+import { getHostStatuses } from "../Services/storage";
+import { isVenueConfigured } from "../Utils/validate";
 
 export function HomePage({
   locations,
-  isHost,
   onOpen,
   onHost,
 }) {
-  console.log("HOME locations:", locations);
-  console.log("HOME isHost:", isHost);
   const [region, setRegion] = useState("Alle Regionen");
   const [query, setQuery] = useState("");
   const [selectedLocation, setSelectedLocation] = useState(null);
+  // null = Freischalt-Prüfung läuft noch — die Liste erscheint erst danach.
+  const [hostStatuses, setHostStatuses] = useState(null);
   const todayKey = dateKey(new Date());
 
-  const isConfigured = (loc) => {
-    const hasSlotByDay = Object.keys(loc.slotsByDay || {}).length > 0;
+  // Freischalt-Status der Gastgeber-Profile laden. hostProfiles ist die
+  // Quelle (nicht das venues-Feld); erneut ausgeführt, sobald sich die
+  // Betriebsliste ändert.
+  useEffect(() => {
+    let alive = true;
+    const uids = [
+      ...new Set(locations.map((loc) => loc.hostUid).filter(Boolean)),
+    ];
+    if (uids.length === 0) {
+      setHostStatuses({});
+      return undefined;
+    }
+    setHostStatuses(null);
+    (async () => {
+      const statuses = await getHostStatuses(uids);
+      if (alive) setHostStatuses(statuses);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [locations]);
 
-    return !!(
-      (loc.days || []).length &&
-      ((loc.slots || []).length || hasSlotByDay)
-    );
-  };
+  // Nur Betriebe mit freigeschaltetem Gastgeber-Profil (registrationStatus
+  // "Active") und vollständiger Konfiguration (Tage + Slots) sind sichtbar.
+  const visibleVenues = hostStatuses
+    ? locations.filter(
+        (loc) =>
+          String(hostStatuses[loc.hostUid] || "").toLowerCase() === "active" &&
+          isVenueConfigured(loc),
+      )
+    : [];
 
-  const filtered = locations.filter((loc) => {
+  const filtered = visibleVenues.filter((loc) => {
     return (
       (region === "Alle Regionen" || loc.region === region) &&
       (query.trim() === "" ||
@@ -103,9 +127,9 @@ export function HomePage({
                 {v("Für Gastgeber", "For hosts")}
               </button>
               <span style={{ fontSize: 13.5, color: "#5B627A" }}>
-                {locations.length} {v("Partnerbetriebe", "partner venues")} ·{" "}
-                {new Set(locations.map((loc) => loc.region)).size}{" "}
-                {v("Regionen", "regions")} · {v("1 Konto", "one account")}
+                {hostStatuses
+                  ? `${visibleVenues.length} ${v("Partnerbetriebe", "partner venues")} · ${new Set(visibleVenues.map((loc) => loc.region)).size} ${v("Regionen", "regions")} · ${v("1 Konto", "one account")}`
+                  : ""}
               </span>
             </div>
           </div>
@@ -131,7 +155,7 @@ export function HomePage({
 
       <div className="home-map-section">
         <MapSection
-          locations={locations}
+          locations={visibleVenues}
           selectedLocation={selectedLocation}
           onSelect={(loc) => setSelectedLocation(loc)}
         />
@@ -169,7 +193,7 @@ export function HomePage({
 
 
      
-      {filtered.length === 0 ? (
+      {hostStatuses === null ? null : filtered.length === 0 ? (
         <div
           className="card"
           style={{ textAlign: "center", color: "#5B627A" }}

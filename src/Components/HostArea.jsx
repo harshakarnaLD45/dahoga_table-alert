@@ -13,6 +13,7 @@ import {
   getPhotos,
   setPhotos,
   upsertVenue,
+  upsertHost,
   setSetting,
   removeNotification,
   getOccupancy,
@@ -325,6 +326,9 @@ export function HostArea({
       };
       // upsertVenue ersetzt die ganze Zeile — loc ist der vollständige Betrieb.
       await upsertVenue({ ...loc, ...overrides });
+      // Inhaber im Gastgeber-Profil nachziehen (hostProfiles = Quelle für
+      // Anzeige und Freischalt-Status).
+      await upsertHost({ betriebId: loc.id, inhaber: inhaber.trim() });
       if (pwActive) {
         await updateHostPassword(newPw);
         setCurrentPw("");
@@ -336,8 +340,8 @@ export function HostArea({
       reload();
       showToast(
         v(
-          "Mischtisch-Daten gespeichert — sofort für Gäste sichtbar",
-          "Mischtisch data saved — visible to guests immediately",
+          "Profildaten wurden erfolgreich gespeichert.",
+          "Profile data has been successfully saved.",
         ),
       );
     } catch (err) {
