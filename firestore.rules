@@ -109,15 +109,6 @@ service cloud.firestore {
       allow list, update, delete: if isAdmin();
     }
 
-    match /settings/regCounter {
-      allow read: if isPasswordUser();
-      allow create: if isPasswordUser()
-        && request.resource.data.value == 1;
-      allow update: if isPasswordUser()
-        && request.resource.data.value == resource.data.value + 1;
-      allow delete: if isAdmin();
-    }
-
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();

@@ -111,18 +111,6 @@ export async function setSetting(key, value) {
   );
 }
 
-export async function nextRegistrationCode() {
-  const { db } = await getFirebaseServices();
-  const ref = db.collection("settings").doc("regCounter");
-  const next = await db.runTransaction(async (transaction) => {
-    const snap = await transaction.get(ref);
-    const value = Number(snap.exists ? snap.data().value : 0) + 1;
-    transaction.set(ref, { value, updatedAt: nowIso() });
-    return value;
-  });
-  return `REG-${new Date().getFullYear()}-${String(next).padStart(5, "0")}`;
-}
-
 // -------------------------------------------------------------------- Betriebe
 
 export async function getVenues() {
@@ -414,6 +402,26 @@ export async function createHostAccount(email, password) {
 // Saves the complete host registration as one Firestore transaction.
 // The password is intentionally never written to Firestore; Firebase Auth
 // securely owns host credentials.
+// Zufällige, noch unvergebene Registrierungsnummer (REG-<Jahr>-XXXXX, genau
+// 5 Ziffern). Die Duplikat-Prüfung läuft gegen die öffentlich lesbaren
+// venues-Dokumente — jede Registrierung trägt ihre Nummer am Betriebsdokument,
+// und eine Abfrage auf registrations ist Gastgebern durch die Firestore-Regeln
+// untersagt (list nur für Admins). Kein Zähler; bei 100.000 Kombinationen
+// reichen 50 Versuche praktisch immer.
+async function uniqueRegCode(db) {
+  const year = new Date().getFullYear();
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const code = `REG-${year}-${String(Math.floor(Math.random() * 100000)).padStart(5, "0")}`;
+    const existing = await db
+      .collection("venues")
+      .where("regCode", "==", code)
+      .limit(1)
+      .get();
+    if (existing.empty) return code;
+  }
+  throw new Error("Keine freie Registrierungsnummer gefunden.");
+}
+
 export async function saveHostRegistration({ venue, registration, profile }) {
   const { db, auth } = await getFirebaseServices();
   const user = auth.currentUser;
@@ -424,20 +432,14 @@ export async function saveHostRegistration({ venue, registration, profile }) {
   const profileRef = db.collection("hostProfiles").doc(user.uid);
   const venueRef = db.collection("venues").doc(venue.id);
   const registrationRef = db.collection("registrations").doc(registrationId);
-  const counterRef = db.collection("settings").doc("regCounter");
   const createdAt = registration?.createdAt || nowIso();
 
+  // Nummer vor der Transaktion vergeben — Firestore-Transaktionen unterstützen
+  // keine Abfragen. Die verbleibende Lücke (zwei gleichzeitige Registrierungen
+  // wählen dieselbe Nummer) ist bei diesem Format praktisch ausgeschlossen.
+  const regCode = await uniqueRegCode(db);
+
   return db.runTransaction(async (transaction) => {
-    // Firestore requires all transaction reads before transaction writes.
-    const counterSnap = await transaction.get(counterRef);
-    const counterValue = Number(counterSnap.exists ? counterSnap.data().value : 0) + 1;
-    const regCode = `REG-${new Date().getFullYear()}-${String(counterValue).padStart(5, "0")}`;
-
-    transaction.set(counterRef, {
-      value: counterValue,
-      updatedAt: nowIso(),
-    });
-
     transaction.set(profileRef, clean({
       uid: user.uid,
       email: user.email,
